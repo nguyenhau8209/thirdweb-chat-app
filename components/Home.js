@@ -7,6 +7,9 @@ import { Client } from "@xmtp/xmtp-js";
 import Contacts from "../components/Contacts.js";
 import Image from "next/image.js";
 const TEST_ADDRESS = "0x3eCf3AfB79c161bAa5e3a810a38ffBfD62E9c422";
+const BOT_ADDRESS = "0x937C0d4a6294cdfa575de17382c7076b579DC176";
+
+import { loadKeys, storeKeys } from "./helpers";
 const Home = () => {
   const [message, setMessage] = useState(null);
   const converseRef = useRef(null);
@@ -17,13 +20,29 @@ const Home = () => {
   const [isOnNetwork, setIsOnNetwork] = useState(false);
   const [showContactsList, setShowContactsList] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
-  console.log("address ", address);
-  console.log("signer ", signer);
+  const clientOptions = {
+    env: "production",
+  };
+  const getKeysFromStore = async () => {
+    let keys = loadKeys(selectedContact);
+    if (!keys) {
+      keys = await Client.getKeys(signer, {
+        ...clientOptions,
+        // we don't need to publish the contact here since it
+        // will happen when we create the client later
+        skipContactPublishing: true,
+        // we can skip persistence on the keystore for this short-lived
+        // instance
+        persistConversations: false,
+      });
+      storeKeys(selectedContact, keys);
+    }
+    return keys;
+  };
 
   //Function to load the existing messages in a conversation
   const newConversation = async function (xmtp_client, addressTo) {
-    console.log(await xmtp_client?.canMessage(addressTo));
-    console.log("addressTo", addressTo);
+    console.log("addressTo ", addressTo);
     //create a new conversation with the address
     if (await xmtp_client?.canMessage(addressTo)) {
       const conversation = await xmtp_client.conversations.newConversation(
@@ -45,14 +64,16 @@ const Home = () => {
     const conversations = await clientRef.current.conversations.list();
     return conversations;
   };
-  console.log("test address: ", process.env.TEST_ADDRESS);
   //Function to initialize the xmtp client
   const initXMTP = async function () {
-    console.log("vaoooo");
-    console.log(process.env.TEST_ADDRESS);
     const startConversation = async (contactToInit) => {
-      const xmtp = await Client.create(signer, { env: "production" });
-      console.log("xmtp ", xmtp);
+      const keys = await getKeysFromStore();
+      console.log("keys ", keys);
+      console.log("clientOptions ", clientOptions);
+      const xmtp = await Client.create(null, {
+        ...clientOptions,
+        privateKeyOverride: keys,
+      });
       //Create or load conversation with Gm bot
       newConversation(xmtp, contactToInit.address);
       //Set the XMTP client in state foe later use
@@ -64,14 +85,11 @@ const Home = () => {
     if (selectedContact) {
       startConversation(selectedContact);
     } else {
-      startConversation({ address: TEST_ADDRESS });
+      startConversation({ address: BOT_ADDRESS });
     }
   };
 
   useEffect(() => {
-    console.log("isConnected ", isConnected);
-    console.log("isOnNetwork ", isOnNetwork);
-
     if (isOnNetwork && converseRef.current) {
       //Function to stream new messages in the conversation
       const streamMessages = async () => {
@@ -95,9 +113,13 @@ const Home = () => {
 
   useEffect(() => {
     const startConversation = async () => {
-      const xmtp = await Client.create(signer, { env: "production" });
+      const keys = await getKeysFromStore();
+      const xmtp = await Client.create(null, {
+        ...clientOptions,
+        privateKeyOverride: keys,
+      });
       //Create or load conversation with Gm bot
-      newConversation(xmtp, selectedContact.address);
+      newConversation(xmtp, selectedContact);
       //Set the xmtp client in state for later use
       setIsOnNetwork(!!xmtp.address);
       //Set the client in the ref
@@ -108,6 +130,8 @@ const Home = () => {
       startConversation();
     }
   }, [selectedContact]);
+
+  console.log("selectedContact ", selectedContact);
   return (
     <div className={styles.Home}>
       {/* Display the ConnectWallet component if not connected */}
@@ -147,7 +171,7 @@ const Home = () => {
           <Contacts
             loadConversations={loadConversations}
             setSelectedContact={setSelectedContact}
-            setShowContactList={setShowContactsList}
+            setShowContactsList={setShowContactsList}
           />
         )
       )}

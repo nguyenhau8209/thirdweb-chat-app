@@ -35,13 +35,13 @@ function Chat({
     const getUserName = (message) => {
       if (message.senderAddress === address) {
         return "You";
+      } else if (selectedContact) {
+        return selectedContact;
       } else if (
         selectedContact &&
         selectedContact.profileName !== "No web3 profile"
       ) {
         return selectedContact.profileName;
-      } else if (selectedContact && selectedContact.address) {
-        return selectedContact.address;
       } else {
         return;
       }

@@ -1,29 +1,41 @@
 import React, { useState, useEffect } from "react";
-import styles from "./Chat.module.css";
-import {
-  init,
-  useLazyQueryWithPagination,
-  fetchQuery,
-} from "@airstack/airstack-react";
 
-init("29e4514124794cfba1002e869484a59e");
+const Contacts = (props) => {
+  const [results, setResults] = useState([]);
 
-const Contacts = async (props) => {
-  const [listConversations, setListConversations] = useState([]);
-  console.log(props);
   useEffect(() => {
-    const loadConversations = async () => {
-      const results = await props?.loadConversations();
-      const data = results.map((i, v) => {
-        console.log("i ", i);
-        console.log("v ", v);
-        setListConversations(v);
-      });
+    const fetchConversations = async () => {
+      try {
+        const data = await props?.loadConversations();
+        setResults(data);
+      } catch (error) {
+        console.error("Error loading conversations:", error);
+      }
     };
-    loadConversations();
-  }, [listConversations]);
-  console.log(listConversations);
-  return <h2 className="">Hello contacts</h2>;
+
+    fetchConversations();
+  }, [props]); // Add props to the dependency array if loadConversations may change
+  const handleContactSelect = (contact) => {
+    console.log("contact ", contact);
+    props.setSelectedContact(contact?.peerAddress);
+    props.setShowContactsList(false); // Assuming setShowContactsList controls the visibility of the contact list
+  };
+
+  return (
+    <div>
+      {results.map((contact, index) => (
+        <div
+          key={index}
+          onClick={() => handleContactSelect(contact)}
+          style={{ cursor: "pointer" }}
+        >
+          <h2 className="" style={{ color: "black" }}>
+            {contact?.peerAddress}
+          </h2>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 export default Contacts;
